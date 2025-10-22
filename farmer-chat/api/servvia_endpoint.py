@@ -87,7 +87,7 @@ def get_answer_for_text_query(request):
                     english_query, detected_language = asyncio.run(
                         detect_language_and_translate_to_english(str(original_query))
                     )
-                    print(f"🌐 ServVIA: Detected language '{detected_language}' - Translated to: '{english_query}'")
+                    print(f"✅ ServVIA: Detected '{detected_language}' | Translated: '{english_query}'")
                 except Exception as trans_error:
                     print(f"⚠️ ServVIA: Translation detection failed, using original: {trans_error}")
                     english_query = str(original_query)
@@ -100,7 +100,7 @@ def get_answer_for_text_query(request):
                 try:
                     print("🏥 ServVIA: Generating healthcare response from PDF...")
                     healthcare_response_english = get_healthcare_response_from_pdf(english_query, user_name)
-                    print(f"✅ ServVIA: Healthcare response generated in English")
+                    print(f"✅ ServVIA: Healthcare response generated")
                 except Exception as pdf_error:
                     print(f"❌ ServVIA PDF Error: {pdf_error}")
                     healthcare_response_english = f"Hello {user_name}! I understand you're asking about '{original_query}'. For your health and safety, please consult a healthcare professional for specific medical advice. 🏥"
@@ -110,16 +110,19 @@ def get_answer_for_text_query(request):
             # Step 3: Translate response back to user's detected language
             final_response = healthcare_response_english
             
-            if TRANSLATION_AVAILABLE and detected_language != "en":
+            # FIX: Always translate back if not English (handle all non-English languages)
+            if TRANSLATION_AVAILABLE and detected_language and detected_language.lower() != "en":
                 try:
-                    print(f"🌐 ServVIA: Translating response back to '{detected_language}'...")
+                    print(f"🌐 ServVIA: Translating response to '{detected_language}'...")
                     final_response = asyncio.run(
                         translate_text_to_language(healthcare_response_english, detected_language)
                     )
-                    print(f"✅ ServVIA: Response translated to user's language")
+                    print(f"✅ ServVIA: Response translated successfully to {detected_language}")
                 except Exception as trans_error:
-                    print(f"⚠️ ServVIA: Response translation failed, using English: {trans_error}")
+                    print(f"⚠️ ServVIA: Response translation failed: {trans_error}")
                     final_response = healthcare_response_english
+            else:
+                print(f"ℹ️ ServVIA: Keeping response in English (detected: {detected_language})")
             
             response_data = {
                 "success": True,
