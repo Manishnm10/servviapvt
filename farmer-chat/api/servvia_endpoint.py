@@ -94,12 +94,20 @@ def get_answer_for_text_query(request):
                     detected_language = "en"
             
             # Step 2: Generate healthcare response from PDF (in English)
+            # CRITICAL FIX: Pass BOTH original AND translated query to PDF handler
             healthcare_response_english = ""
             
             if HEALTHCARE_PDF_AVAILABLE:
                 try:
                     print("🏥 ServVIA: Generating healthcare response from PDF...")
-                    healthcare_response_english = get_healthcare_response_from_pdf(english_query, user_name)
+                    # FIX: Try original query first (for multilingual matching)
+                    healthcare_response_english = get_healthcare_response_from_pdf(original_query, user_name)
+                    
+                    # If no results with original query, try translated
+                    if "couldn't find specific information" in healthcare_response_english.lower():
+                        print("🔄 ServVIA: Trying with translated query...")
+                        healthcare_response_english = get_healthcare_response_from_pdf(english_query, user_name)
+                    
                     print(f"✅ ServVIA: Healthcare response generated")
                 except Exception as pdf_error:
                     print(f"❌ ServVIA PDF Error: {pdf_error}")
