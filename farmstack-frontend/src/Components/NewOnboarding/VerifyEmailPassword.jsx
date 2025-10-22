@@ -1,4 +1,5 @@
 import React, { useContext, useState } from "react";
+import { Link } from "react-router-dom";
 import styles from "./onboarding.module.css";
 import {
   Button,
@@ -239,6 +240,11 @@ const VerifyEmailPassword = (props) => {
           {" "}
           {"Submit"}
         </Button>
+      </div>
+      {/* Register link added below */}
+      <div style={{ textAlign: "center", marginTop: "16px" }}>
+        <span>Don't have an account? </span>
+        <Link to="/register">Register</Link>
       </div>
     </div>
   );

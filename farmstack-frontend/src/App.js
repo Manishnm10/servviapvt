@@ -1,3 +1,4 @@
+import Register from "./Views/Pages/HomeScreen/Register";
 import React, { useContext, useEffect, lazy, Suspense } from "react";
 import "mdbreact/dist/css/mdb.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
@@ -147,6 +148,7 @@ function App() {
         <Router>
           <ScrollToTop />
           <Switch>
+            <Route exact path="/register" component={Register} />
             <Route exact path="/login" component={OnBoarding} />
             <Route path="/datahub" component={Datahub} />
             <Route path="/participant" component={Participant} />

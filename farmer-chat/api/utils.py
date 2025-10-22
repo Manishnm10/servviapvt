@@ -5,6 +5,13 @@ import logging
 import os
 import uuid
 
+# Healthcare PDF handler integration
+try:
+    from healthcare.pdf_content_handler import get_healthcare_response_from_pdf
+    HEALTHCARE_PDF_AVAILABLE = True
+except ImportError:
+    HEALTHCARE_PDF_AVAILABLE = False
+
 from common.constants import Constants
 from common.utils import (
     create_or_update_user_by_email,
@@ -131,8 +138,9 @@ def preprocess_user_data(
 
 def process_query(original_query, email_id, authenticated_user={}):
     """
-    Pre-process user profile and user query, execute RAG pipeline with intent classification if the
-    user query is relevant to the content, and finally return the generated response for the same.
+    Pre-process user profile and user query, execute healthcare response using PDF content or
+    RAG pipeline with intent classification if the user query is relevant to the content,
+    and finally return the generated response for the same.
     """
     message_obj, chat_history = None, None
     (
@@ -151,6 +159,12 @@ def process_query(original_query, email_id, authenticated_user={}):
         message_id = user_data.get("message_id", None)
         chat_history = get_user_chat_history(user_id) if user_id else None
 
+        # Get user name for healthcare responses
+        if not user_name:
+            user_name = authenticated_user.get("first_name", "there")
+            if not user_name or user_name.strip() == '':
+                user_name = email_id.split('@')[0] if '@' in email_id else 'there'
+
         # begin translating original query to english
         message_data_to_insert_or_update["input_translation_start_time"] = (
             datetime.datetime.now()
@@ -167,24 +181,43 @@ def process_query(original_query, email_id, authenticated_user={}):
         )
         # end of translating original query to english
 
-        intent_response, user_intent, proceed_to_rag = asyncio.run(
-            process_user_intent(original_query, user_name)
-        )
-
-        if not proceed_to_rag:
-            # do not execute rag pipeline
-            response_map.update({"generated_final_response": intent_response})
-
+        # Check if healthcare PDF handler is available - prioritize PDF content for ServVIA
+        if HEALTHCARE_PDF_AVAILABLE:
+            logger.info("🏥 ServVIA: Using healthcare PDF content for response")
+            
+            # Generate healthcare response from PDF
+            healthcare_response = get_healthcare_response_from_pdf(original_query, user_name)
+            
+            # Create response map for healthcare
+            response_map.update({
+                "generated_final_response": healthcare_response,
+                "source": "Home_Remedies_Guide.pdf",
+                "message_id": message_id
+            })
+            
+            # Skip intent processing and RAG pipeline for healthcare queries
+            proceed_to_rag = False
+            
         else:
-            # execute rag pipeline further
-            response_map, message_data_update_post_rag_pipeline = execute_rag_pipeline(
-                query_in_english,
-                input_language_detected,
-                email_id,
-                user_name=user_name,
-                message_id=message_id,
-                chat_history=chat_history,
+            # Fallback to original intent processing and RAG pipeline
+            intent_response, user_intent, proceed_to_rag = asyncio.run(
+                process_user_intent(original_query, user_name)
             )
+
+            if not proceed_to_rag:
+                # do not execute rag pipeline
+                response_map.update({"generated_final_response": intent_response})
+
+            else:
+                # execute rag pipeline further
+                response_map, message_data_update_post_rag_pipeline = execute_rag_pipeline(
+                    query_in_english,
+                    input_language_detected,
+                    email_id,
+                    user_name=user_name,
+                    message_id=message_id,
+                    chat_history=chat_history,
+                )
 
         # translate back to the detected input language of the original query
         # begin translating original response to input_language_detected
@@ -200,13 +233,23 @@ def process_query(original_query, email_id, authenticated_user={}):
                 str(message_id),
             )
         )
-        # begin translating original response to input_language_detected
+        # end translating original response to input_language_detected
+
+        # Add healthcare-specific follow-up questions if using PDF handler
+        if HEALTHCARE_PDF_AVAILABLE:
+            healthcare_followups = [
+                "What are the warning signs I should watch for?",
+                "How can I prevent this condition in the future?", 
+                "Are there any foods or activities I should avoid?",
+                "When should I see a doctor for this condition?"
+            ]
+            follow_up_question_options = healthcare_followups
 
         response_map.update(
             {
                 "translated_response": translated_response,
                 "final_response": final_response,
-                "source": response_map.get("source", None),
+                "source": response_map.get("source", "Home_Remedies_Guide.pdf" if HEALTHCARE_PDF_AVAILABLE else None),
                 "follow_up_questions": follow_up_question_options,
             }
         )
@@ -217,8 +260,22 @@ def process_query(original_query, email_id, authenticated_user={}):
         )
         message_data_to_insert_or_update.update(message_data_update_post_rag_pipeline)
 
+        # Log ServVIA healthcare activity
+        if HEALTHCARE_PDF_AVAILABLE:
+            logger.info(f"🏥 ServVIA healthcare response generated for user: {user_name}, query: {original_query}")
+
     except Exception as error:
-        logger.error(error, exc_info=True)
+        logger.error(f"❌ ServVIA Error in process_query: {error}", exc_info=True)
+        
+        # Fallback healthcare response in case of error
+        fallback_response = f"Hello {user_name}! 👋 I'm experiencing some technical difficulties with my healthcare system right now. For your safety, please consult a healthcare professional for medical advice. 🏥"
+        
+        response_map.update({
+            "translated_response": fallback_response,
+            "final_response": fallback_response,
+            "source": None,
+            "follow_up_questions": ["Contact your healthcare provider", "Visit urgent care if symptoms persist", "Call emergency services if severe"]
+        })
 
     finally:
         if message_obj and message_id:
