@@ -306,8 +306,11 @@ def process_input_audio_to_base64(
         logger.error(error, exc_info=True)
 
     finally:
-        if input_audio_file:
-            os.remove(input_audio_file)
+        if input_audio_file and os.path.exists(input_audio_file):
+            try:
+                os.remove(input_audio_file)
+            except Exception as e:
+                logger.warning(f"⚠️ Could not delete temp file: {e}")
 
     return input_audio
 
@@ -316,42 +319,62 @@ def process_output_audio(
     original_text, message_id=None, with_db_config=Config.WITH_DB_CONFIG
 ):
     """
-    Synthesise output text or generated response to audio in english language, and encode to base64 string.
+    Synthesise output text or generated response to audio in detected language, and encode to base64 string.
     """
     response_audio, response_audio_file, message_obj = None, None, None
     message_data_to_insert_or_update = {}
+    input_language_detected = "en"  # 🔧 FIX: Default to English
 
     try:
         if with_db_config and message_id:
             message_obj = get_message_object_by_id(message_id)
-            input_language_detected = message_obj.input_language_detected
-
+            input_language_detected = message_obj.input_language_detected or "en"
         else:
-            query_in_english, input_language_detected = asyncio.run(
-                detect_language_and_translate_to_english(original_text)
-            )
+            # 🔧 FIX: Detect language from the text with error handling
+            try:
+                query_in_english, input_language_detected = asyncio.run(
+                    detect_language_and_translate_to_english(original_text)
+                )
+                logger.info(f"🌐 Detected language for TTS: {input_language_detected}")
+            except Exception as lang_error:
+                logger.warning(f"⚠️ Language detection failed: {lang_error}, using English")
+                input_language_detected = "en"
 
         message_data_to_insert_or_update["response_text_to_speech_start_time"] = (
             datetime.datetime.now()
         )
+        
+        # 🔧 FIX: Log the synthesis attempt
+        logger.info(f"🔊 Synthesizing speech for text: '{original_text[:50]}...' in language: {input_language_detected}")
+        
         response_audio_file = asyncio.run(
             synthesize_speech(str(original_text), input_language_detected, message_id)
         )
+        
         message_data_to_insert_or_update["response_text_to_speech_end_time"] = (
             datetime.datetime.now()
         )
 
-        response_audio = encode_binary_to_base64(response_audio_file)
+        # 🔧 FIX: Check if file was created successfully
+        if response_audio_file and os.path.exists(response_audio_file):
+            response_audio = encode_binary_to_base64(response_audio_file)
+            logger.info(f"✅ Audio synthesis successful, file size: {os.path.getsize(response_audio_file)} bytes")
+        else:
+            logger.error(f"❌ Audio file not created: {response_audio_file}")
+            response_audio = None
 
     except Exception as error:
-        logger.error(error, exc_info=True)
+        logger.error(f"❌ process_output_audio error: {error}", exc_info=True)
 
     finally:
-        if message_obj:
+        if message_obj and message_id:
             save_message_obj(message_id, message_data_to_insert_or_update)
 
-        if response_audio_file:
-            os.remove(response_audio_file)
+        if response_audio_file and os.path.exists(response_audio_file):
+            try:
+                os.remove(response_audio_file)
+            except Exception as e:
+                logger.warning(f"⚠️ Could not delete temp file: {e}")
 
     return response_audio
 
@@ -448,7 +471,10 @@ def process_transcriptions(
         if message_obj and message_id:
             save_message_obj(message_id, message_data_to_insert_or_update)
 
-        if voice_file:
-            os.remove(voice_file)
+        if voice_file and os.path.exists(voice_file):
+            try:
+                os.remove(voice_file)
+            except Exception as e:
+                logger.warning(f"⚠️ Could not delete temp file: {e}")
 
     return response_map

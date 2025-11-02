@@ -1,42 +1,724 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ServVIA - AI Healthcare Assistant</title>
-    <!-- TailwindCSS -->
-    <link
-      href="https://cdn.jsdelivr.net/npm/tailwindcss@^3.0/dist/tailwind.min.css"
-      rel="stylesheet"
-    />
-    <script src="https://cdn.tailwindcss.com"></script>
-  </head>
-  <body>
-    <div>
-      <input
-        id="userInput"
-        type="text"
-        placeholder="Type your message..."
-      />
-      <button onclick="sendMessage()">Send</button>
-    </div>
-    <script>
-      function sendMessage() {
-        const input = document.getElementById("userInput").value.trim();
-        if (!input) return;
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <meta name="description" content="ServVia.AI - Your AI-powered healthcare platform" />
+    <meta name="author" content="ServVia.AI" />
+    <title>ServVia.AI - AI Healthcare Assistant</title>
+    
+    <link rel="icon" type="image/png" sizes="32x32" href="https://digitalgreen.org/wp-content/themes/digital-green/images/favicons/favicon-32x32.png" />
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@^3.0/dist/tailwind.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/@tailwindcss/typography@^0.5/dist/typography.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-        fetch("http://127.0.0.1:8000/api/chat/get_answer_for_text_query/", {
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      
+      body {
+        background-color: #2c3e50;
+        color: #ecf0f1;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .container {
+        display: flex;
+        height: 100vh;
+        width: 100%;
+      }
+
+      .sidebar {
+        width: 265px;
+        background-color: #1e2936;
+        padding: 30px 20px;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 2px 0 15px rgba(0, 0, 0, 0.4);
+      }
+
+      .logo-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 40px;
+      }
+
+      /* SIDEBAR LOGO - 60px with minimal padding for maximum zoom */
+      .sidebar-logo-box {
+        width: 60px;
+        height: 60px;
+        background-color: #FFFFFF;
+        border-radius: 16px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1px;
+        overflow: hidden;
+      }
+
+      .sidebar-logo-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .app-title {
+        font-size: 26px;
+        font-weight: 700;
+        color: white;
+        text-align: center;
+        letter-spacing: 0.5px;
+      }
+
+      .email-section {
+        margin-top: 30px;
+      }
+
+      .email-input {
+        width: 100%;
+        padding: 12px 15px;
+        margin-bottom: 15px;
+        border-radius: 8px;
+        border: none;
+        background-color: white;
+        color: #2c3e50;
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      .email-input:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.3);
+      }
+
+      .email-button {
+        width: 100%;
+        padding: 12px;
+        background-color: #34495e;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        font-size: 15px;
+      }
+
+      .email-button:hover {
+        background-color: #4a5f7f;
+      }
+
+      .warning-message {
+        padding: 8px;
+        background-color: #fc8181;
+        color: #742a2a;
+        border-radius: 6px;
+        margin-bottom: 10px;
+        font-size: 12px;
+        text-align: center;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .main-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 30px 40px;
+        background-color: #34495e;
+      }
+
+      #chat {
+        flex: 1;
+        background-color: #3d5166;
+        border-radius: 16px;
+        padding: 30px;
+        overflow-y: auto;
+        margin-bottom: 25px;
+        position: relative;
+        box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.2);
+      }
+
+      #chat::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      #chat::-webkit-scrollbar-track {
+        background: #2c3e50;
+        border-radius: 4px;
+      }
+
+      #chat::-webkit-scrollbar-thumb {
+        background: #4a5f7f;
+        border-radius: 4px;
+      }
+
+      .welcome-overlay {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        padding: 40px;
+        transition: opacity 0.5s;
+        width: 90%;
+        max-width: 600px;
+      }
+
+      /* WELCOME LOGO - 140px with minimal padding for maximum zoom */
+      .welcome-logo-box {
+        width: 140px;
+        height: 140px;
+        background-color: #FFFFFF;
+        border-radius: 24px;
+        margin: 0 auto 30px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4px;
+        overflow: hidden;
+      }
+
+      .welcome-logo-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .welcome-title {
+        font-size: 32px;
+        font-weight: 700;
+        color: white;
+        margin-bottom: 20px;
+        letter-spacing: 0.5px;
+      }
+
+      .welcome-text {
+        color: #d0dae6;
+        font-size: 17px;
+        line-height: 1.7;
+        max-width: 100%;
+      }
+
+      .message {
+        display: flex;
+        padding: 16px;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        align-items: flex-start;
+      }
+
+      .message.user {
+        background-color: #4a5f7f;
+        margin-left: auto;
+        margin-right: 0;
+        max-width: 80%;
+      }
+
+      .message.bot {
+        background-color: #2c3e50;
+        border: 1px solid #4a5f7f;
+        max-width: 85%;
+      }
+
+      .avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        margin-right: 12px;
+        background: white;
+        padding: 4px;
+        flex-shrink: 0;
+      }
+
+      .message-content {
+        flex: 1;
+      }
+
+      .input-container {
+        display: flex;
+        gap: 15px;
+        background-color: #3d5166;
+        padding: 18px 25px;
+        border-radius: 50px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        align-items: center;
+      }
+
+      .mic-button {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background-color: #e74c3c;
+        border: none;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        flex-shrink: 0;
+        font-size: 18px;
+      }
+
+      .mic-button:hover {
+        background-color: #c0392b;
+        transform: scale(1.05);
+      }
+
+      .mic-button.recording {
+        background-color: #c0392b;
+        animation: pulse 1.5s infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+      }
+
+      .text-input {
+        flex: 1;
+        padding: 14px 20px;
+        background-color: #4a5f7f;
+        border: none;
+        border-radius: 25px;
+        color: white;
+        font-size: 15px;
+      }
+
+      .text-input:focus {
+        outline: none;
+        background-color: #5a6f8f;
+      }
+
+      .text-input::placeholder {
+        color: #95a5b8;
+      }
+
+      .send-button {
+        padding: 14px 32px;
+        background-color: #3498db;
+        border: none;
+        border-radius: 25px;
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 15px;
+      }
+
+      .send-button:hover {
+        background-color: #2980b9;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px rgba(52, 152, 219, 0.4);
+      }
+
+      .prose {
+        color: white;
+        max-width: 100%;
+      }
+
+      .prose p, .prose li, .prose a, .prose strong {
+        color: white;
+      }
+
+      .playAudioButton {
+        background-color: #3498db;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background-color 0.2s;
+      }
+
+      .playAudioButton:hover {
+        background-color: #2980b9;
+      }
+    </style>
+  </head>
+  
+  <body>
+    <div class="container">
+      <div class="sidebar">
+        <div class="logo-container">
+          <div class="sidebar-logo-box">
+            <img src="{% static 'images/servvia-logo.jpeg' %}?v=3" alt="ServVia.AI" />
+          </div>
+          <h1 class="app-title">ServVia.AI</h1>
+        </div>
+
+        <div class="email-section">
+          <input type="email" id="emailInput" class="email-input" placeholder="Enter your email" />
+          <div id="email_warning_box" class="warning-message hidden">
+            Please enter valid email id
+          </div>
+          <button class="email-button" onclick="saveEmail()">
+            Save Email
+          </button>
+        </div>
+      </div>
+
+      <div class="main-content">
+        <div id="chat">
+          <div id="welcomeMessage" class="welcome-overlay">
+            <div class="welcome-logo-box">
+              <img src="{% static 'images/servvia-logo.jpeg' %}?v=3" alt="ServVia.AI" />
+            </div>
+            <h2 class="welcome-title">Welcome to ServVia.AI</h2>
+            <p class="welcome-text">
+              Your AI-powered healthcare assistant. Ask me about health symptoms, home remedies, medical guidance, or upload your vitals for analysis. Let's take care of your health together! 💊 🏥
+            </p>
+          </div>
+        </div>
+
+        <div class="input-container">
+          <button id="recordButton" class="mic-button" onclick="toggleVoiceInput()" title="Click to speak">
+            <i class="fas fa-microphone" id="micIcon"></i>
+          </button>
+
+          <input
+            id="userInput"
+            type="text"
+            class="text-input"
+            placeholder="Type your message..."
+            onkeypress="handleKeyPress(event)"
+          />
+
+          <button onclick="sendMessage()" class="send-button" id="sendButton">
+            Send
+            <span id="loadingIcon" class="hidden">
+              <i class="fas fa-spinner fa-spin"></i>
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let counter = 0;
+      let userMailId = localStorage.getItem("userEmail");
+      let baseUrl = "http://127.0.0.1:8000/api";
+      let recognition = null;
+      let isListening = false;
+
+      function saveEmail() {
+        const email = document.getElementById("emailInput").value;
+        if (email) {
+          localStorage.setItem("userEmail", email);
+          userMailId = email;
+          if (!localStorage.getItem("language")) {
+            localStorage.setItem("language", "en-US");
+          }
+          alert("✅ Email saved! You can now use voice and text input.");
+        } else {
+          alert("⚠️ Please enter an email address.");
+        }
+      }
+
+      function loadEmail() {
+        const storedEmail = localStorage.getItem("userEmail");
+        if (storedEmail) {
+          document.getElementById("emailInput").value = storedEmail;
+          userMailId = storedEmail;
+        }
+      }
+
+      window.onload = function() {
+        loadEmail();
+        setupVoiceRecognition();
+      };
+
+      function setupVoiceRecognition() {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+          console.warn('⚠️ Web Speech API not supported');
+          return;
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.lang = localStorage.getItem("language") || 'en-US';
+
+        recognition.onresult = function(event) {
+          let interimTranscript = '';
+          let finalTranscript = '';
+          
+          for (let i = 0; i < event.results.length; ++i) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript;
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+
+          const inputBox = document.getElementById("userInput");
+          const displayText = finalTranscript || interimTranscript;
+          if (displayText) {
+            inputBox.value = displayText;
+          }
+        };
+
+        recognition.onerror = function(event) {
+          console.error('🎤 Error:', event.error);
+          stopListening();
+          if (event.error === 'not-allowed') {
+            alert('❌ Microphone access denied!');
+          }
+        };
+
+        recognition.onend = function() {
+          stopListening();
+          const text = document.getElementById("userInput").value.trim();
+          if (text) {
+            setTimeout(() => sendMessage(), 300);
+          }
+        };
+      }
+
+      function toggleVoiceInput() {
+        if (!recognition) {
+          alert('❌ Voice recognition not available in this browser.');
+          return;
+        }
+        if (isListening) {
+          stopListening();
+        } else {
+          startListening();
+        }
+      }
+
+      function startListening() {
+        const micBtn = document.getElementById('recordButton');
+        const micIcon = document.getElementById('micIcon');
+        const inputBox = document.getElementById('userInput');
+
+        isListening = true;
+        inputBox.value = '';
+        inputBox.placeholder = 'Listening... speak now!';
+        micBtn.classList.add('recording');
+        micIcon.className = 'fas fa-stop';
+
+        try {
+          recognition.start();
+        } catch (error) {
+          stopListening();
+        }
+      }
+
+      function stopListening() {
+        const micBtn = document.getElementById('recordButton');
+        const micIcon = document.getElementById('micIcon');
+        const inputBox = document.getElementById('userInput');
+
+        isListening = false;
+        inputBox.placeholder = 'Type your message...';
+        micBtn.classList.remove('recording');
+        micIcon.className = 'fas fa-microphone';
+
+        try {
+          recognition.stop();
+        } catch (error) {}
+      }
+
+      function sendMessage() {
+        const welcomeMessage = document.getElementById("welcomeMessage");
+        if (welcomeMessage) {
+          welcomeMessage.style.opacity = "0";
+          setTimeout(() => welcomeMessage.style.display = "none", 500);
+        }
+
+        const input = document.getElementById("userInput");
+        const message = input.value.trim();
+        const loadingIcon = document.getElementById("loadingIcon");
+        
+        if (message === "") return;
+
+        loadingIcon.classList.remove("hidden");
+        input.value = "";
+        
+        addToChatWindow("user", message);
+        addToChatWindow("bot", "<i class='fas fa-spinner fa-spin'></i> Loading...", true);
+
+        fetch(`${baseUrl}/api/chat/get_answer_for_text_query/`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ message: input }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email_id: userMailId, query: message }),
         })
-          .then((response) => response.json())
-          .then((data) => {
-            alert(`Response: ${data.message}`);
+          .then(response => response.json())
+          .then(data => {
+            const loadingMsg = document.getElementById("loadingMessage");
+            if (loadingMsg) loadingMsg.remove();
+            loadingIcon.classList.add("hidden");
+            processApiResponse(data);
           })
-          .catch((error) => console.error("Error:", error));
+          .catch(error => {
+            console.error("Error:", error);
+            const loadingMsg = document.getElementById("loadingMessage");
+            if (loadingMsg) loadingMsg.remove();
+            loadingIcon.classList.add("hidden");
+            addToChatWindow("bot", "❌ Error. Please try again.");
+          });
+      }
+
+      function processApiResponse(data) {
+        let responseText = removeFollowUpQuestions(data.response);
+        let responseHtml = renderMarkdown(responseText);
+        responseHtml = `<div class="prose">${responseHtml}</div>`;
+        
+        if (data.source) {
+          let sourceHtml = data.source;
+          if (!sourceHtml.startsWith("https://")) {
+            sourceHtml = sourceHtml.startsWith("/") 
+              ? "https://datahubtest.farmstack.co" + sourceHtml
+              : "https://datahubtest.farmstack.co/" + sourceHtml;
+          }
+          responseHtml += `<div style="margin-top:16px;text-align:right;">
+                        <a href="${sourceHtml}" target="_blank" style="display:inline-flex;align-items:center;background:#3498db;color:white;padding:8px 16px;border-radius:8px;text-decoration:none;font-weight:600;">
+                            <span>Source</span> <span style="margin-left:8px;">🔗</span>
+                        </a></div>`;
+        }
+
+        if (data.follow_up_questions && data.follow_up_questions.length > 0) {
+          responseHtml += `<div style="margin-top:16px;font-weight:600;">Follow-up Questions:</div><ul style="list-style:disc;padding-left:20px;margin-top:8px;">`;
+          data.follow_up_questions.forEach(q => {
+            responseHtml += `<li style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+                            <span>${q.question}</span>
+                            <button onclick="askFollowUpQuestion('${q.question.replace(/'/g, "\\'")}')" style="margin-left:12px;background:#3498db;color:white;padding:6px 12px;border-radius:6px;border:none;cursor:pointer;">
+                                <i class="fa-solid fa-paper-plane"></i>
+                            </button></li>`;
+          });
+          responseHtml += `</ul>`;
+        }
+
+        if (!data.error) {
+          responseHtml += `<div style="margin-top:16px;">
+                          <button class="playAudioButton" data-message-id="${counter++}" data-response-text="${escapeHtmlAttribute(data.response)}">
+                              <i class="fa-solid fa-volume-high"></i> Play Audio
+                          </button></div>`;
+        }
+
+        addToChatWindow("bot", responseHtml);
+      }
+
+      function askFollowUpQuestion(question) {
+        document.getElementById("userInput").value = question;
+        sendMessage();
+      }
+
+      function addToChatWindow(sender, htmlContent, isTemporary = false) {
+        const chatWindow = document.getElementById("chat");
+        const messageElement = document.createElement("div");
+        const avatarImage = document.createElement("img");
+        
+        avatarImage.className = "avatar";
+        avatarImage.src = sender === "user" 
+          ? "https://via.placeholder.com/150/cccccc/969696.png?text=User"
+          : "https://farmerchat.vercel.app/secondary-logo.svg";
+        
+        messageElement.className = `message ${sender}`;
+
+        const messageContent = document.createElement("div");
+        messageContent.className = "message-content";
+        messageContent.innerHTML = htmlContent;
+
+        messageElement.appendChild(avatarImage);
+        messageElement.appendChild(messageContent);
+        chatWindow.appendChild(messageElement);
+
+        if (isTemporary) messageElement.id = "loadingMessage";
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+      }
+
+      function handleKeyPress(event) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          sendMessage();
+        }
+      }
+
+      let currentAudio = null;
+
+      function fetchAndPlayAudio(message_id, responseText) {
+        let playButton = document.querySelector(`button[data-message-id="${message_id}"]`);
+        if (!playButton) return;
+
+        if (currentAudio && !currentAudio.paused) {
+          currentAudio.pause();
+          currentAudio.currentTime = 0;
+          playButton.innerHTML = '<i class="fa-solid fa-volume-high"></i> Play Audio';
+          return;
+        }
+
+        playButton.disabled = true;
+        playButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+
+        fetch(`${baseUrl}/api/chat/synthesise_audio/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message_id: null, text: responseText, email_id: userMailId }),
+        })
+          .then(response => response.json())
+          .then(data => {
+            if (!data.error && data.audio) {
+              if (currentAudio) currentAudio.pause();
+              currentAudio = new Audio(`data:audio/ogg;base64,${data.audio}`);
+              currentAudio.play();
+              playButton.innerHTML = '<i class="fa-solid fa-stop"></i> Stop';
+              currentAudio.addEventListener("ended", () => {
+                playButton.innerHTML = '<i class="fa-solid fa-volume-high"></i> Play Audio';
+              });
+            } else {
+              playButton.innerHTML = "❌ Failed";
+            }
+            playButton.disabled = false;
+          })
+          .catch(() => {
+            playButton.innerHTML = "❌ Error";
+            playButton.disabled = false;
+          });
+      }
+
+      function escapeHtmlAttribute(str) {
+        return str.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+      }
+
+      document.getElementById("chat").addEventListener("click", function (event) {
+        const playButton = event.target.closest("button.playAudioButton");
+        if (playButton) {
+          const messageId = playButton.getAttribute("data-message-id");
+          const responseText = playButton.getAttribute("data-response-text");
+          fetchAndPlayAudio(messageId, responseText);
+        }
+      });
+
+      function renderMarkdown(markdownText) {
+        return marked.parse(markdownText);
+      }
+
+      function removeFollowUpQuestions(text) {
+        const startIndex = text.indexOf("Here are the follow-up questions you can ask:");
+        return startIndex !== -1 ? text.substring(0, startIndex) : text;
       }
     </script>
   </body>

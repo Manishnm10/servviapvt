@@ -110,12 +110,10 @@ class ChatAPIViewSet(GenericViewSet):
             # check for authenticated user using email
             authenticated_user = authenticate_user_based_on_email(email_id)
 
-            # if is_authenticated == False:
             if not authenticated_user:
                 response_data.data["message"] = "Invalid Email ID"
                 response_data.status_code = status.HTTP_401_UNAUTHORIZED
                 return response_data
-                # return Response(response_data, status=status.HTTP_401_UNAUTHORIZED)
 
             if not original_text:
                 response_data.data["message"] = (
@@ -124,19 +122,23 @@ class ChatAPIViewSet(GenericViewSet):
                 response_data.status_code = status.HTTP_400_BAD_REQUEST
                 return response_data
 
+            # 🔧 FIX: Process output audio with proper error handling
+            logger.info(f"🔊 Processing TTS for text: '{original_text[:50]}...'")
             response_audio = process_output_audio(original_text, message_id)
 
+            # 🔧 FIX: Corrected error handling - removed undefined variable
             if not response_audio:
+                logger.error("❌ Failed to generate audio - response_audio is None")
                 response_data.data.update(
                     {
-                        "message": "Invalid base64 string or unable to generate transcriptions currently.",
-                        "audio": input_audio_base64,
+                        "message": "Unable to generate audio currently. Please try again.",
+                        "error": True
                     }
                 )
-                response_data.status_code = status.HTTP_401_UNAUTHORIZED
+                response_data.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
                 return response_data
-                # return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
 
+            logger.info("✅ Audio synthesis successful")
             response_data.data.update(
                 {
                     "text": original_text,
@@ -146,9 +148,9 @@ class ChatAPIViewSet(GenericViewSet):
             )
 
         except Exception as error:
-            logger.error(error, exc_info=True)
+            logger.error(f"❌ Audio synthesis error: {error}", exc_info=True)
             response_data.data.update(
-                {"message": "Something went wrong", "error": True}
+                {"message": f"Something went wrong: {str(error)}", "error": True}
             )
             response_data.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
 

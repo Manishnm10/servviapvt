@@ -2,6 +2,7 @@ from django.http import HttpResponse
 from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
+from django.shortcuts import render
 import json
 
 @csrf_exempt  # Only for testing; remove in production for security!
@@ -26,5 +27,6 @@ def register_view(request):
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
     elif request.method == 'GET':
         return HttpResponse('Registration form goes here')
+
 def home(request):
-    return HttpResponse("Hello, this is the home page!")
+    return render(request, 'index.html')
