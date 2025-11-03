@@ -1,0 +1,32 @@
+[
+  {
+    "domain": "who.int",
+    "name": "World Health Organization",
+    "notes": "Global public health authority"
+  },
+  {
+    "domain": "cdc.gov",
+    "name": "Centers for Disease Control and Prevention",
+    "notes": "US public health agency"
+  },
+  {
+    "domain": "nih.gov",
+    "name": "National Institutes of Health",
+    "notes": "US medical research"
+  },
+  {
+    "domain": "mayoclinic.org",
+    "name": "Mayo Clinic",
+    "notes": "Clinical information and patient care resources"
+  },
+  {
+    "domain": "ncbi.nlm.nih.gov",
+    "name": "NCBI / PubMed",
+    "notes": "Scientific publications and resources"
+  },
+  {
+    "domain": "bmj.com",
+    "name": "BMJ",
+    "notes": "Peer reviewed medical journal"
+  }
+]
