@@ -9,7 +9,13 @@
     <meta name="author" content="ServVia.AI" />
     <title>ServVia.AI - AI Healthcare Assistant</title>
     
-    <link rel="icon" type="image/png" sizes="32x32" href="https://digitalgreen.org/wp-content/themes/digital-green/images/favicons/favicon-32x32.png" />
+    <!-- SERVVIA TRANSPARENT LOGO AS FAVICON - Larger 128x128 size -->
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'images/servvia-transparent-logo.png' %}" />
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'images/servvia-transparent-logo.png' %}" />
+    <link rel="icon" type="image/png" sizes="64x64" href="{% static 'images/servvia-transparent-logo.png' %}" />
+    <link rel="icon" type="image/png" sizes="128x128" href="{% static 'images/servvia-transparent-logo.png' %}" />
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'images/servvia-transparent-logo.png' %}" />
+    
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@^3.0/dist/tailwind.min.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/@tailwindcss/typography@^0.5/dist/typography.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
@@ -36,6 +42,7 @@
         width: 100%;
       }
 
+      /* SIDEBAR WITH COLLAPSE ANIMATION */
       .sidebar {
         width: 265px;
         background-color: #1e2936;
@@ -43,6 +50,90 @@
         display: flex;
         flex-direction: column;
         box-shadow: 2px 0 15px rgba(0, 0, 0, 0.4);
+        transition: all 0.3s ease;
+        position: relative;
+      }
+
+      /* COLLAPSED STATE - Narrow sidebar like Grok */
+      .sidebar.collapsed {
+        width: 70px;
+        padding: 20px 10px;
+      }
+
+      .sidebar-content {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        transition: opacity 0.3s ease;
+      }
+
+      /* Hide content when collapsed except logo */
+      .sidebar.collapsed .sidebar-content {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      /* COLLAPSE BUTTON - Circle with arrow at bottom, aligned with mic */
+      .collapse-btn {
+        position: absolute;
+        bottom: 43px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 40px;
+        height: 40px;
+        background-color: #34495e;
+        border: none;
+        border-radius: 50%;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        z-index: 100;
+      }
+
+      .collapse-btn:hover {
+        background-color: #4a5f7f;
+        transform: translateX(-50%) scale(1.1);
+      }
+
+      /* Arrow rotation */
+      .collapse-btn i {
+        transition: transform 0.3s ease;
+      }
+
+      .sidebar.collapsed .collapse-btn i {
+        transform: rotate(180deg);
+      }
+
+      /* COLLAPSED LOGO - Show small logo at top when collapsed */
+      .collapsed-logo {
+        display: none;
+        width: 40px;
+        height: 40px;
+        margin: 0 auto 20px;
+        background-color: #FFFFFF;
+        border-radius: 12px;
+        padding: 2px;
+        overflow: hidden;
+      }
+
+      .sidebar.collapsed .collapsed-logo {
+        display: block;
+      }
+
+      .collapsed-logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      /* Hide main logo container when collapsed */
+      .sidebar.collapsed .logo-container {
+        display: none;
       }
 
       .logo-container {
@@ -50,6 +141,7 @@
         flex-direction: column;
         align-items: center;
         margin-bottom: 40px;
+        transition: opacity 0.3s ease;
       }
 
       /* SIDEBAR LOGO - 60px with minimal padding for maximum zoom */
@@ -83,6 +175,7 @@
 
       .email-section {
         margin-top: 30px;
+        margin-bottom: 60px;
       }
 
       .email-input {
@@ -139,6 +232,7 @@
         flex-direction: column;
         padding: 30px 40px;
         background-color: #34495e;
+        transition: margin-left 0.3s ease;
       }
 
       #chat {
@@ -243,6 +337,11 @@
         background: white;
         padding: 4px;
         flex-shrink: 0;
+      }
+
+      /* Hide user avatar */
+      .message.user .avatar {
+        display: none;
       }
 
       .message-content {
@@ -358,23 +457,35 @@
   
   <body>
     <div class="container">
-      <div class="sidebar">
-        <div class="logo-container">
-          <div class="sidebar-logo-box">
-            <img src="{% static 'images/servvia-logo.jpeg' %}?v=3" alt="ServVia.AI" />
-          </div>
-          <h1 class="app-title">ServVia.AI</h1>
+      <div class="sidebar" id="sidebar">
+        <!-- COLLAPSED LOGO - Shows only when sidebar is collapsed -->
+        <div class="collapsed-logo">
+          <img src="{% static 'images/servvia-logo.jpeg' %}?v=3" alt="ServVia.AI" />
         </div>
 
-        <div class="email-section">
-          <input type="email" id="emailInput" class="email-input" placeholder="Enter your email" />
-          <div id="email_warning_box" class="warning-message hidden">
-            Please enter valid email id
+        <div class="sidebar-content">
+          <div class="logo-container">
+            <div class="sidebar-logo-box">
+              <img src="{% static 'images/servvia-logo.jpeg' %}?v=3" alt="ServVia.AI" />
+            </div>
+            <h1 class="app-title">ServVia.AI</h1>
           </div>
-          <button class="email-button" onclick="saveEmail()">
-            Save Email
-          </button>
+
+          <div class="email-section">
+            <input type="email" id="emailInput" class="email-input" placeholder="Enter your email" />
+            <div id="email_warning_box" class="warning-message hidden">
+              Please enter valid email id
+            </div>
+            <button class="email-button" onclick="saveEmail()">
+              Save Email
+            </button>
+          </div>
         </div>
+
+        <!-- COLLAPSE BUTTON - Circle at bottom, aligned with mic -->
+        <button class="collapse-btn" onclick="toggleSidebar()" title="Toggle sidebar">
+          <i class="fas fa-chevron-left"></i>
+        </button>
       </div>
 
       <div class="main-content">
@@ -419,6 +530,12 @@
       let baseUrl = "http://127.0.0.1:8000/api";
       let recognition = null;
       let isListening = false;
+
+      // TOGGLE SIDEBAR COLLAPSE/EXPAND
+      function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        sidebar.classList.toggle('collapsed');
+      }
 
       function saveEmail() {
         const email = document.getElementById("emailInput").value;
