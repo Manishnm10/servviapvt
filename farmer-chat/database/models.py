@@ -78,10 +78,14 @@ class User(BaseModel):
             String datatype based UUID embedded primary key of an object
         phone : `peewee.CharField`
             mobile / phone number of the user
+        email : `peewee.CharField`
+            email address of the user (unique)
         first_name : `peewee.CharField`
             first name of the user profile
         last_name : `peewee.CharField`
             last name of the user profile
+        role : `peewee.CharField`
+            User role: 'patient' (default) or 'admin'
         last_used : `peewee.DateTimeField`
             date and time at which the user accessed the app last time
         preferred_language : `database.models.Language` (ForeignKey)
@@ -91,8 +95,10 @@ class User(BaseModel):
     id = CharField(primary_key=True, default=uuid.uuid4, max_length=50)
     phone = CharField(max_length=15, null=True)
     email = CharField(max_length=100, unique=True)
+    password = CharField(max_length=255, null=True)
     first_name = CharField(max_length=255, null=True)
     last_name = CharField(max_length=255, null=True)
+    role = CharField(max_length=20, default='patient')  # ← ADD THIS LINE
     last_used = DateTimeField(null=True)
     preferred_language = ForeignKeyField(Language, backref="language", null=True)
 
@@ -452,3 +458,213 @@ class RephraseMetrics(BaseModel):
 
     class Meta:
         table_name = "rephrase_metrics"
+
+
+# ============================================================================
+# MEDICAL PROFILING MODELS - Added for User Health Profile Feature
+# ============================================================================
+
+
+class UserMedicalProfile(BaseModel):
+    """
+    Stores user's medical history and health conditions with encrypted sensitive data
+    
+    Security Features:
+    - Allergies stored encrypted
+    - Medications stored encrypted
+    - Additional notes encrypted
+    - Audit logging for all access
+    
+    Attributes
+    ----------
+        id : `peewee.CharField`
+            UUID primary key
+        user : `database.models.User` (ForeignKey)
+            User this profile belongs to (unique - one profile per user)
+        has_diabetes : `peewee.BooleanField`
+            Whether user has diabetes
+        diabetes_type : `peewee.CharField`
+            Type of diabetes (type1, type2, gestational)
+        has_hypertension : `peewee.BooleanField`
+            Whether user has high blood pressure
+        has_heart_disease : `peewee.BooleanField`
+            Whether user has heart conditions
+        has_kidney_disease : `peewee.BooleanField`
+            Whether user has kidney conditions
+        is_pregnant : `peewee.BooleanField`
+            Whether user is currently pregnant
+        is_breastfeeding : `peewee.BooleanField`
+            Whether user is currently breastfeeding
+        has_allergies : `peewee.BooleanField`
+            Whether user has any allergies
+        allergies_encrypted : `peewee.TextField`
+            Encrypted JSON array of allergens
+        current_medications_encrypted : `peewee.TextField`
+            Encrypted JSON array of current medications
+        is_vegetarian : `peewee.BooleanField`
+            Whether user follows vegetarian diet
+        is_vegan : `peewee.BooleanField`
+            Whether user follows vegan diet
+        dietary_restrictions : `peewee.TextField`
+            JSON array of dietary restrictions
+        additional_notes_encrypted : `peewee.TextField`
+            Encrypted additional medical notes
+        last_updated : `peewee.DateTimeField`
+            When profile was last updated
+        profile_version : `peewee.IntegerField`
+            Version number for tracking changes
+    """
+    
+    id = CharField(primary_key=True, default=uuid.uuid4, max_length=50)
+    user = ForeignKeyField(User, backref="medical_profile", unique=True)
+    
+    # Medical Conditions (Boolean flags)
+    has_diabetes = BooleanField(default=False)
+    diabetes_type = CharField(max_length=50, null=True)  # "type1", "type2", "gestational"
+    has_hypertension = BooleanField(default=False)
+    has_heart_disease = BooleanField(default=False)
+    has_kidney_disease = BooleanField(default=False)
+    is_pregnant = BooleanField(default=False)
+    is_breastfeeding = BooleanField(default=False)
+    
+    # Allergies (Encrypted JSON array)
+    has_allergies = BooleanField(default=False)
+    allergies_encrypted = TextField(null=True)  # Encrypted: ["turmeric", "peanuts"]
+    
+    # Medications (Encrypted JSON array)
+    current_medications_encrypted = TextField(null=True)  # Encrypted: ["aspirin", "insulin"]
+    
+    # Dietary Restrictions
+    is_vegetarian = BooleanField(default=False)
+    is_vegan = BooleanField(default=False)
+    dietary_restrictions = TextField(null=True)  # JSON: ["low-sodium", "sugar-free"]
+    
+    # Additional Notes (Encrypted)
+    additional_notes_encrypted = TextField(null=True)
+    
+    # Metadata
+    last_updated = DateTimeField(default=datetime.datetime.now)
+    profile_version = IntegerField(default=1)
+    
+    class Meta:
+        table_name = "user_medical_profile"
+
+
+class UserMedicalConsent(BaseModel):
+    """
+    Tracks user consent for storing and processing medical data
+    Required for GDPR/HIPAA compliance
+    
+    Attributes
+    ----------
+        id : `peewee.CharField`
+            UUID primary key
+        user : `database.models.User` (ForeignKey)
+            User who gave consent (unique)
+        consent_given : `peewee.BooleanField`
+            Whether user has given consent
+        consent_date : `peewee.DateTimeField`
+            When consent was given
+        consent_withdrawn_date : `peewee.DateTimeField`
+            When consent was withdrawn (if applicable)
+        can_store_medical_history : `peewee.BooleanField`
+            Permission to store medical history
+        can_process_for_recommendations : `peewee.BooleanField`
+            Permission to use data for personalized recommendations
+        data_usage_agreed : `peewee.BooleanField`
+            Agreement to data usage terms
+        consent_version : `peewee.CharField`
+            Version of consent terms accepted
+    """
+    
+    id = CharField(primary_key=True, default=uuid.uuid4, max_length=50)
+    user = ForeignKeyField(User, backref="medical_consent", unique=True)
+    
+    # Consent flags
+    consent_given = BooleanField(default=False)
+    consent_date = DateTimeField(null=True)
+    consent_withdrawn_date = DateTimeField(null=True)
+    
+    # Specific permissions
+    can_store_medical_history = BooleanField(default=False)
+    can_process_for_recommendations = BooleanField(default=False)
+    data_usage_agreed = BooleanField(default=False)
+    
+    # Consent version (track changes to T&C)
+    consent_version = CharField(max_length=20, default="1.0")
+    
+    class Meta:
+        table_name = "user_medical_consent"
+
+
+class IngredientSubstitution(BaseModel):
+    """
+    Maps ingredients to safe alternatives based on medical conditions
+    Pre-populated with common substitutions for diabetes, allergies, etc.
+    
+    Attributes
+    ----------
+        id : `peewee.CharField`
+            UUID primary key
+        original_ingredient : `peewee.CharField`
+            Original ingredient name (e.g., "sugar", "turmeric")
+        condition_type : `peewee.CharField`
+            Medical condition type (e.g., "diabetes", "allergy_turmeric")
+        substitute_ingredient : `peewee.CharField`
+            Safe substitute ingredient
+        reason : `peewee.TextField`
+            Explanation for substitution
+        confidence_level : `peewee.CharField`
+            Confidence in substitution (high, medium, low)
+    """
+    
+    id = CharField(primary_key=True, default=uuid.uuid4, max_length=50)
+    original_ingredient = CharField(max_length=100, index=True)
+    condition_type = CharField(max_length=100, index=True)  # "diabetes", "allergy_turmeric", "hypertension"
+    substitute_ingredient = CharField(max_length=100)
+    reason = TextField(null=True)
+    confidence_level = CharField(max_length=20, default="high")  # "high", "medium", "low"
+    
+    class Meta:
+        table_name = "ingredient_substitution"
+        indexes = (
+            (('original_ingredient', 'condition_type'), False),
+        )
+
+
+class MedicalProfileAuditLog(BaseModel):
+    """
+    Audit log for all medical profile access and modifications
+    Required for compliance and security monitoring
+    
+    Attributes
+    ----------
+        id : `peewee.CharField`
+            UUID primary key
+        user : `database.models.User` (ForeignKey)
+            User whose profile was accessed
+        action : `peewee.CharField`
+            Action performed (created, viewed, updated, deleted)
+        action_details : `peewee.TextField`
+            JSON with detailed information about the action
+        accessed_by : `peewee.CharField`
+            Email of person who accessed the profile
+        ip_address : `peewee.CharField`
+            IP address of the accessor
+        user_agent : `peewee.CharField`
+            User agent string from browser
+        timestamp : `peewee.DateTimeField`
+            When the action occurred
+    """
+    
+    id = CharField(primary_key=True, default=uuid.uuid4, max_length=50)
+    user = ForeignKeyField(User, backref="medical_audit_logs")
+    action = CharField(max_length=50)  # "created", "viewed", "updated", "deleted"
+    action_details = TextField(null=True)  # JSON with change details
+    accessed_by = CharField(max_length=100, null=True)  # email of accessor
+    ip_address = CharField(max_length=50, null=True)
+    user_agent = CharField(max_length=255, null=True)
+    timestamp = DateTimeField(default=datetime.datetime.now)
+    
+    class Meta:
+        table_name = "medical_profile_audit_log"

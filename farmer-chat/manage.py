@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Django's command-line utility for administrative tasks."""
 import os
+os.environ["TF_USE_LEGACY_KERAS"] = "False"
 import sys
 
 

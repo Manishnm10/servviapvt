@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ServVIA Medical - Secure Registration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .auth-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 500px;
+            padding: 40px;
+            animation: slideIn 0.5s ease-out;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo h1 {
+            color: #667eea;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .logo p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .security-badge {
+            background: #f0f9ff;
+            border: 2px solid #0ea5e9;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .security-badge p {
+            color: #0369a1;
+            font-size: 13px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group input.error {
+            border-color: #ef4444;
+        }
+
+        .form-group input.success {
+            border-color: #10b981;
+        }
+
+        .password-toggle {
+            position: relative;
+        }
+
+        .password-toggle button {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            color: #666;
+        }
+
+        .password-strength {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            display: none;
+        }
+
+        .password-strength.active {
+            display: block;
+        }
+
+        .password-strength.weak {
+            background: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+
+        .password-strength.medium {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fde68a;
+        }
+
+        .password-strength.strong {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #6ee7b7;
+        }
+
+        .password-requirements {
+            margin-top: 10px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 12px;
+        }
+
+        .password-requirements p {
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .requirement {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            color: #666;
+        }
+
+        .requirement.met {
+            color: #10b981;
+        }
+
+        .requirement-icon {
+            font-size: 14px;
+        }
+
+        .name-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 15px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-google {
+            background: white;
+            color: #333;
+            border: 2px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-google:hover {
+            background: #f8f9fa;
+            border-color: #667eea;
+        }
+
+        .divider {
+            text-align: center;
+            margin: 25px 0;
+            position: relative;
+        }
+
+        .divider::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            width: 100%;
+            height: 1px;
+            background: #e2e8f0;
+        }
+
+        .divider span {
+            background: white;
+            padding: 0 15px;
+            position: relative;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .link {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .link a:hover {
+            text-decoration: underline;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            animation: shake 0.5s;
+        }
+
+        .alert-error {
+            background: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+
+        .alert-success {
+            background: #efe;
+            color: #3c3;
+            border: 1px solid #cfc;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .field-error {
+            color: #ef4444;
+            font-size: 12px;
+            margin-top: 6px;
+            display: none;
+        }
+
+        .field-error.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="logo">
+            <h1>🏥 ServVIA Medical</h1>
+            <p>Create Your Secure Account</p>
+        </div>
+
+        <div class="security-badge">
+            <p>🔒 Your data is protected with Bcrypt & AES-256 Encryption</p>
+        </div>
+
+        <div id="alert-container"></div>
+
+        <form id="register-form">
+            <div class="name-row">
+                <div class="form-group">
+                    <label for="first_name">First Name *</label>
+                    <input 
+                        type="text" 
+                        id="first_name" 
+                        name="first_name" 
+                        placeholder="John" 
+                        required
+                        autocomplete="given-name"
+                    >
+                    <div class="field-error" id="first_name_error"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="last_name">Last Name</label>
+                    <input 
+                        type="text" 
+                        id="last_name" 
+                        name="last_name" 
+                        placeholder="Doe" 
+                        autocomplete="family-name"
+                    >
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email Address *</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email" 
+                    placeholder="your.email@example.com" 
+                    required
+                    autocomplete="email"
+                >
+                <div class="field-error" id="email_error"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password *</label>
+                <div class="password-toggle">
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        placeholder="Create a strong password" 
+                        required
+                        autocomplete="new-password"
+                    >
+                    <button type="button" id="toggle-password" aria-label="Toggle password visibility">
+                        👁️
+                    </button>
+                </div>
+                <div class="password-strength" id="password-strength">
+                    <strong>Password Strength:</strong> <span id="strength-text"></span>
+                </div>
+                <div class="password-requirements">
+                    <p>Password Requirements:</p>
+                    <div class="requirement" id="req-length">
+                        <span class="requirement-icon">⭕</span>
+                        <span>At least 8 characters</span>
+                    </div>
+                    <div class="requirement" id="req-uppercase">
+                        <span class="requirement-icon">⭕</span>
+                        <span>One uppercase letter</span>
+                    </div>
+                    <div class="requirement" id="req-lowercase">
+                        <span class="requirement-icon">⭕</span>
+                        <span>One lowercase letter</span>
+                    </div>
+                    <div class="requirement" id="req-digit">
+                        <span class="requirement-icon">⭕</span>
+                        <span>One number</span>
+                    </div>
+                    <div class="requirement" id="req-special">
+                        <span class="requirement-icon">⭕</span>
+                        <span>One special character (!@#$%^&*...)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirm_password">Confirm Password *</label>
+                <div class="password-toggle">
+                    <input 
+                        type="password" 
+                        id="confirm_password" 
+                        name="confirm_password" 
+                        placeholder="Re-enter your password" 
+                        required
+                        autocomplete="new-password"
+                    >
+                    <button type="button" id="toggle-confirm-password" aria-label="Toggle password visibility">
+                        👁️
+                    </button>
+                </div>
+                <div class="field-error" id="confirm_password_error"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="role">Account Type *</label>
+                <select id="role" name="role" required>
+                    <option value="patient">Patient</option>
+                    <option value="doctor">Healthcare Provider</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="register-btn">
+                🔐 Create Secure Account
+            </button>
+        </form>
+
+        <div class="divider">
+            <span>OR</span>
+        </div>
+
+        <button id="google-register-btn" class="btn btn-google">
+            <svg width="20" height="20" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Sign up with Google
+        </button>
+
+        <div class="link">
+            Already have an account? <a href="/login">Sign In</a>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px; color: #666;">Creating your account...</p>
+        </div>
+    </div>
+
+    <script>
+        // Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): 2025-11-19 16:49:39
+        // Current User's Login: Raghuraam21
+
+        const API_BASE_URL = 'http://localhost:8000';
+
+        // Password validation rules
+        const passwordRules = {
+            length: password => password.length >= 8,
+            uppercase: password => /[A-Z]/.test(password),
+            lowercase: password => /[a-z]/.test(password),
+            digit: password => /\d/.test(password),
+            special: password => /[!@#$%^&*(),.?":{}|<>]/.test(password)
+        };
+
+        // Toggle password visibility
+        function setupPasswordToggle(buttonId, inputId) {
+            document.getElementById(buttonId).addEventListener('click', function() {
+                const passwordInput = document.getElementById(inputId);
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                this.textContent = type === 'password' ? '👁️' : '🙈';
+            });
+        }
+
+        setupPasswordToggle('toggle-password', 'password');
+        setupPasswordToggle('toggle-confirm-password', 'confirm_password');
+
+        // Show alert message
+        function showAlert(message, type = 'error') {
+            const alertContainer = document.getElementById('alert-container');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.textContent = message;
+            alertContainer.innerHTML = '';
+            alertContainer.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                alertDiv.style.opacity = '0';
+                setTimeout(() => alertDiv.remove(), 300);
+            }, 5000);
+        }
+
+        // Show field error
+        function showFieldError(fieldId, message) {
+            const errorDiv = document.getElementById(`${fieldId}_error`);
+            const input = document.getElementById(fieldId);
+            errorDiv.textContent = message;
+            errorDiv.classList.add('active');
+            input.classList.add('error');
+            input.classList.remove('success');
+        }
+
+        // Clear field error
+        function clearFieldError(fieldId) {
+            const errorDiv = document.getElementById(`${fieldId}_error`);
+            const input = document.getElementById(fieldId);
+            errorDiv.classList.remove('active');
+            input.classList.remove('error');
+            if (input.value) {
+                input.classList.add('success');
+            }
+        }
+
+        // Validate password strength
+        function validatePassword(password) {
+            const strength = {
+                score: 0,
+                level: 'weak',
+                requirements: {}
+            };
+
+            for (const [rule, validator] of Object.entries(passwordRules)) {
+                const met = validator(password);
+                strength.requirements[rule] = met;
+                if (met) strength.score++;
+            }
+
+            if (strength.score >= 5) strength.level = 'strong';
+            else if (strength.score >= 3) strength.level = 'medium';
+
+            return strength;
+        }
+
+        // Update password strength indicator
+        document.getElementById('password').addEventListener('input', function() {
+            const password = this.value;
+            const strengthDiv = document.getElementById('password-strength');
+            const strengthText = document.getElementById('strength-text');
+
+            if (!password) {
+                strengthDiv.classList.remove('active');
+                return;
+            }
+
+            const strength = validatePassword(password);
+            strengthDiv.classList.add('active');
+            strengthDiv.className = `password-strength active ${strength.level}`;
+            
+            const strengthLabels = {
+                weak: '❌ Weak',
+                medium: '⚠️ Medium',
+                strong: '✅ Strong'
+            };
+            strengthText.textContent = strengthLabels[strength.level];
+
+            // Update requirements
+            for (const [rule, met] of Object.entries(strength.requirements)) {
+                const reqDiv = document.getElementById(`req-${rule}`);
+                const icon = reqDiv.querySelector('.requirement-icon');
+                if (met) {
+                    reqDiv.classList.add('met');
+                    icon.textContent = '✅';
+                } else {
+                    reqDiv.classList.remove('met');
+                    icon.textContent = '⭕';
+                }
+            }
+        });
+
+        // Show/hide loading
+        function setLoading(show) {
+            const loading = document.getElementById('loading');
+            const form = document.getElementById('register-form');
+            const googleBtn = document.getElementById('google-register-btn');
+            const registerBtn = document.getElementById('register-btn');
+            
+            if (show) {
+                loading.classList.add('active');
+                form.style.opacity = '0.5';
+                form.style.pointerEvents = 'none';
+                googleBtn.disabled = true;
+                registerBtn.disabled = true;
+            } else {
+                loading.classList.remove('active');
+                form.style.opacity = '1';
+                form.style.pointerEvents = 'auto';
+                googleBtn.disabled = false;
+                registerBtn.disabled = false;
+            }
+        }
+
+        // Handle registration form submission
+        document.getElementById('register-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Clear all previous errors
+            ['first_name', 'email', 'confirm_password'].forEach(clearFieldError);
+            
+            // Get form data
+            const firstName = document.getElementById('first_name').value.trim();
+            const lastName = document.getElementById('last_name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm_password').value;
+            const role = document.getElementById('role').value;
+            
+            // Validate
+            let hasError = false;
+            
+            if (!firstName) {
+                showFieldError('first_name', 'First name is required');
+                hasError = true;
+            }
+            
+            if (!email) {
+                showFieldError('email', 'Email is required');
+                hasError = true;
+            } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                showFieldError('email', 'Please enter a valid email address');
+                hasError = true;
+            }
+            
+            const passwordStrength = validatePassword(password);
+            if (passwordStrength.score < 5) {
+                showAlert('Password does not meet all requirements', 'error');
+                hasError = true;
+            }
+            
+            if (password !== confirmPassword) {
+                showFieldError('confirm_password', 'Passwords do not match');
+                hasError = true;
+            }
+            
+            if (hasError) return;
+            
+            setLoading(true);
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/register/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email,
+                        password,
+                        first_name: firstName,
+                        last_name: lastName,
+                        role
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    // Store tokens
+                    localStorage.setItem('access_token', data.access);
+                    localStorage.setItem('refresh_token', data.refresh);
+                    localStorage.setItem('user_data', JSON.stringify(data.user));
+                    
+                    showAlert('Account created successfully! Redirecting...', 'success');
+                    
+                    // Redirect to dashboard
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1500);
+                } else {
+                    if (data.password_requirements) {
+                        let errorMsg = data.error + '\n\nMissing:\n';
+                        data.password_requirements.feedback.forEach(fb => {
+                            errorMsg += '• ' + fb + '\n';
+                        });
+                        showAlert(errorMsg, 'error');
+                    } else {
+                        showAlert(data.error || 'Registration failed. Please try again.', 'error');
+                    }
+                    setLoading(false);
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                showAlert('Network error. Please try again.', 'error');
+                setLoading(false);
+            }
+        });
+
+        // Handle Google OAuth registration
+        document.getElementById('google-register-btn').addEventListener('click', function() {
+            window.location.href = `${API_BASE_URL}/auth/google/login/`;
+        });
+
+        // Check if user is already logged in
+        window.addEventListener('DOMContentLoaded', function() {
+            const accessToken = localStorage.getItem('access_token');
+            if (accessToken) {
+                window.location.href = '/dashboard';
+            }
+        });
+    </script>
+</body>
+</html>

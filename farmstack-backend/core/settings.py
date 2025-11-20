@@ -46,7 +46,8 @@ INSTALLED_APPS = [
     "microsite",
     "connectors",
     "django_apscheduler",
-    "ai"
+    "ai",
+    "medical_ai",  # ← NEW: Added Medical AI module
 ]
 
 TEST_RUNNER = "django_nose.NoseTestSuiteRunner"
@@ -197,6 +198,35 @@ RESOURCES_URL = "users/resources/"
 RESOURCES_AUDIOS_PATH = os.path.join(BASE_DIR, "media/users/resources/audios/")
 RESOURCES_AUDIOS = os.path.join(MEDIA_URL, "users/resources/audios/")
 
+# ============================================================
+# MEDICAL AI CONFIGURATION - NEW SECTION
+# ============================================================
+
+# Medical AI directories
+MEDICAL_AI_ROOT = os.path.join(BASE_DIR, "medical_ai")
+MEDICAL_AI_UPLOADS = os.path.join(MEDIA_ROOT, "medical_ai/uploads/")
+MEDICAL_AI_MODELS = os.path.join(MEDICAL_AI_ROOT, "models/")
+MEDICAL_AI_DATA = os.path.join(MEDICAL_AI_ROOT, "data/")
+MEDICAL_AI_LOGS = os.path.join(MEDICAL_AI_ROOT, "logs/")
+
+# Medical AI URLs
+MEDICAL_AI_UPLOADS_URL = os.path.join(MEDIA_URL, "medical_ai/uploads/")
+
+# Medical AI settings
+MEDICAL_AI_SETTINGS = {
+    'MAX_UPLOAD_SIZE': 15 * 1024 * 1024,  # 15MB max file size
+    'ALLOWED_IMAGE_FORMATS': ['jpg', 'jpeg', 'png'],
+    'ALLOWED_REPORT_FORMATS': ['jpg', 'jpeg', 'png', 'pdf'],
+    'MODEL_PATH': os.path.join(MEDICAL_AI_MODELS, 'skin_disease_model_best.h5'),
+    'IMG_SIZE': 224,
+    'CONFIDENCE_THRESHOLD': 0.6,
+    'TESSERACT_PATH': r'C:\Program Files\Tesseract-OCR\tesseract.exe',  # Windows path
+}
+
+# ============================================================
+# END MEDICAL AI CONFIGURATION
+# ============================================================
+
 # Create all required local directories
 for path in [
     TEMP_STANDARDISED_PATH,
@@ -210,6 +240,10 @@ for path in [
     DATASET_FILES_PATH,
     SUPPORT_TICKET_FILES_PATH,
     RESOLUTIONS_ATTACHMENT_PATH,
+    MEDICAL_AI_UPLOADS,  # ← NEW: Medical AI uploads directory
+    MEDICAL_AI_MODELS,   # ← NEW: Medical AI models directory
+    MEDICAL_AI_DATA,     # ← NEW: Medical AI data directory
+    MEDICAL_AI_LOGS,     # ← NEW: Medical AI logs directory
 ]:
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
@@ -253,6 +287,12 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "rest_framework.views.exception_handler",
+    # ← NEW: Increased parser sizes for medical images
+    "DEFAULT_PARSER_CLASSES": [
+        "rest_framework.parsers.JSONParser",
+        "rest_framework.parsers.FormParser",
+        "rest_framework.parsers.MultiPartParser",
+    ],
 }
 
 SIMPLE_JWT = {
@@ -284,9 +324,9 @@ CACHES = {
 FIXTURE_DIRS = ["fixtures"]
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Datahub API",
-    "DESCRIPTION": "API for datahub",
-    "VERSION": "1.0.0",
+    "TITLE": "Servvia Healthcare API",  # ← Updated title
+    "DESCRIPTION": "API for Servvia Healthcare including Medical AI features",  # ← Updated description
+    "VERSION": "2.0.0",  # ← Updated version
     "SERVE_INCLUDE_SCHEMA": False,
     "SWAGGER_UI_DIST": "SIDECAR",
     "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
@@ -322,12 +362,25 @@ LOGGING = {
             "class": "logging.StreamHandler",
             "formatter": "with_datetime",
         },
+        # ← NEW: Medical AI specific log handler
+        "medical_ai_file": {
+            "level": "INFO",
+            "class": "logging.FileHandler",
+            "filename": "./medical_ai/logs/medical_ai.log",
+            "formatter": "with_datetime",
+        },
     },
     "loggers": {
         "django": {
             "handlers": ["file", "console"],
             "level": "INFO",
-            "propagate":False
+            "propagate": False
+        },
+        # ← NEW: Medical AI logger
+        "medical_ai": {
+            "handlers": ["medical_ai_file", "console"],
+            "level": "INFO",
+            "propagate": False
         },
     },
 }
@@ -358,8 +411,8 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY",'')
 YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY",'')
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL",'')
 FILE_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024 # 25 Mb limit
-CELERY_BROKER_URL = f'redis://{os.environ.get("REDIS_SERVICE", "loaclhost")}:6379/0'
-CELERY_RESULT_BACKEND = f'redis://{os.environ.get("REDIS_SERVICE", "loaclhost")}:6379/0'
+CELERY_BROKER_URL = f'redis://{os.environ.get("REDIS_SERVICE", "localhost")}:6379/0'
+CELERY_RESULT_BACKEND = f'redis://{os.environ.get("REDIS_SERVICE", "localhost")}:6379/0'
 
 SMTP_SERVER = os.environ.get("SMTP_SERVER",'')
 SMTP_PORT = 587
@@ -376,3 +429,8 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(minute=0, hour=0),
     },
 }
+
+# ============================================================
+# DATA UPLOAD SIZE INCREASE FOR MEDICAL IMAGES
+# ============================================================
+DATA_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024  # 25MB - for medical images/reports

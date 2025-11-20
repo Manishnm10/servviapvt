@@ -28,11 +28,11 @@ from .views import protected_media_view
 # schema for swagger API documentation
 schema_view = get_schema_view(
     openapi.Info(
-        title="Datahub API",
-        default_version="v1",
-        description="Backend API for datahub",
+        title="Servvia Healthcare API",  # Updated
+        default_version="v2.0",  # Updated
+        description="Backend API for Servvia Healthcare including Medical AI features",  # Updated
         terms_of_service="https://www.google.com/policies/terms/",
-        contact=openapi.Contact(email="contact@snippets.local"),
+        contact=openapi.Contact(email="contact@servvia.local"),  # Updated
         license=openapi.License(name="BSD License"),
     ),
     public=True,
@@ -64,7 +64,7 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('protected-media/', protected_media_view),
     path("ai/", include("ai.urls")),
-
+    path('api/medical-ai/', include('medical_ai.urls')),  # ← NEW: Medical AI endpoints
 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) + static(settings.PROTECTED_MEDIA_URL, document_root=settings.PROTECTED_MEDIA_ROOT)
 
@@ -73,4 +73,3 @@ if settings.DEBUG:
     urlpatterns += [
         path("__debug__/", include("debug_toolbar.urls")),
     ]
-    

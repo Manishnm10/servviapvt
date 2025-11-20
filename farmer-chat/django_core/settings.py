@@ -9,14 +9,21 @@ https://docs.djangoproject.com/en/4.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
 """
+import os
+os.environ["TF_USE_LEGACY_KERAS"] = "False"
 
 from pathlib import Path
-import os
 from django_core.config import ENV_CONFIG
 from django_core.logging_config import configure_logging
+from dotenv import load_dotenv
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+# Load environment variables from .env
+load_dotenv(dotenv_path=BASE_DIR / '.env')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
@@ -38,6 +45,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "rest_framework",
+    "rest_framework_simplejwt",
     "corsheaders",
 ]
 
@@ -134,8 +143,62 @@ CACHES = {
     }
 }
 
+# REST Framework Configuration
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+
+# JWT Configuration
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),  # Access token expires in 1 hour
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),  # Refresh token expires in 7 days
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+}
+
 # Call custom logger
 configure_logging()
 
 # Google Cloud Configuration
-GOOGLE_APPLICATION_CREDENTIALS = os.getenv('GOOGLE_APPLICATION_CREDENTIALS', 'credentials/google-translate-key.json')
+GOOGLE_APPLICATION_CREDENTIALS = os.path.join(BASE_DIR, 'credentials', 'google-translate-key.json')
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = GOOGLE_APPLICATION_CREDENTIALS
+
+# ============================================================
+# GOOGLE OAUTH 2.0 CONFIGURATION
+# Current Date and Time (UTC): 2025-11-19 13:26:00
+# Current User: Raghuraam21
+# ============================================================
+
+# Google OAuth settings
+GOOGLE_OAUTH_CLIENT_ID = os.getenv('GOOGLE_OAUTH_CLIENT_ID')
+GOOGLE_OAUTH_CLIENT_SECRET = os.getenv('GOOGLE_OAUTH_CLIENT_SECRET')
+GOOGLE_OAUTH_REDIRECT_URI = os.getenv('GOOGLE_OAUTH_REDIRECT_URI', 'http://localhost:8000/api/auth/google/callback/')
+
+# OAuth scopes
+GOOGLE_OAUTH_SCOPES = [
+    'openid',
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile',
+]
+
+# OAuth configuration
+GOOGLE_OAUTH_CONFIG = {
+    'client_id': GOOGLE_OAUTH_CLIENT_ID,
+    'client_secret': GOOGLE_OAUTH_CLIENT_SECRET,
+    'redirect_uri': GOOGLE_OAUTH_REDIRECT_URI,
+    'scopes': GOOGLE_OAUTH_SCOPES,
+    'auth_uri': 'https://accounts.google.com/o/oauth2/v2/auth',
+    'token_uri': 'https://oauth2.googleapis.com/token',
+    'userinfo_uri': 'https://www.googleapis.com/oauth2/v2/userinfo',
+}

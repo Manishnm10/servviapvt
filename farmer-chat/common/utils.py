@@ -1,3 +1,11 @@
+"""
+Common utility functions for ServVIA farmer-chat
+Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): 2025-11-19 10:40:18
+Current User's Login: Raghuraam21
+
+Updated: 2025-11-19 - Added SSL verification control for FarmStack integration
+"""
+
 import base64
 import binascii
 import json
@@ -38,10 +46,37 @@ def send_request(
     request_type="GET",
     total_retry=10,
     params=None,
+    verify=True,  # NEW PARAMETER: SSL certificate verification control
 ):
     """
     Generic helper function to send requests to a specified URL with the relevant HTTP method,
     query params, request body, content negotiation and number of retries.
+    
+    Args:
+        url (str): Target URL for the request
+        headers (dict): HTTP headers dictionary
+        data (dict/str): Request payload/body
+        content_type (str): Content type (form-data or JSON)
+        request_type (str): HTTP method (GET, POST, PUT)
+        total_retry (int): Number of retry attempts
+        params (dict): Query parameters
+        verify (bool/str): SSL certificate verification
+                          - True: Use certifi CA bundle (default, recommended for production)
+                          - False: Disable SSL verification (for expired certificates)
+                          - str: Path to custom CA bundle file
+    
+    Returns:
+        Response object or None on failure
+        
+    Examples:
+        # Normal request with SSL verification
+        response = send_request("https://api.example.com/data")
+        
+        # Request with SSL verification disabled (for expired certificates)
+        response = send_request("https://demo.farmstack.farmer.chat/api", verify=False)
+        
+        # Request with custom CA bundle
+        response = send_request("https://api.example.com/data", verify="/path/to/ca-bundle.crt")
     """
     response = None
     try:
@@ -61,21 +96,62 @@ def send_request(
             allowed_methods={"GET", "POST", "PUT"},
         )
         session.mount(url, HTTPAdapter(max_retries=retries))
+        
+        # Smart SSL verification handling
+        # - If verify=True, use certifi CA bundle (most secure)
+        # - If verify=False, disable SSL verification (for expired certs)
+        # - If verify=string, use custom CA bundle path
+        ssl_verify = certifi.where() if verify is True else verify
+        
         response = session.send(
             request_prepped,
             stream=True,
-            verify=certifi.where(),
-            # verify=False,
+            verify=ssl_verify,  # Use the smart SSL verification
         )
         logger.info(f"URL: {url} | Response Status Code: {response.status_code}")
-        # json_response = json.loads(response.text) if response and response.status_code == 200 else {}
-        # json_response.update({"status_code": response.status_code})
-        # logger.info(f"Response: {json_response}")
 
     except Exception as error:
-        logger.error(error, exc_info=True)
+        logger.error(f"Request failed for {url}: {error}", exc_info=True)
 
     return response
+
+
+def authenticate_user_based_on_email(email_id):
+    """
+    Authenticate user based on email ID and return user details
+    
+    Args:
+        email_id (str): User's email address
+        
+    Returns:
+        dict: User details or None if authentication fails
+    """
+    try:
+        # Handle None or invalid email
+        if not email_id or not isinstance(email_id, str):
+            logger.warning(f"Invalid email_id provided: {email_id}")
+            return None
+        
+        # Extract email name safely
+        email_name = email_id.split('@')[0] if '@' in email_id else 'User'
+        
+        # Get or create user
+        user = get_or_create_user_by_email({'email': email_id})
+        
+        if user:
+            return {
+                'user_id': str(user.id),
+                'email': email_id,
+                'name': f"{user.first_name or ''} {user.last_name or ''}".strip() or email_name,
+                'authenticated': True
+            }
+        else:
+            logger.error(f"Failed to authenticate user: {email_id}")
+            return None
+            
+    except Exception as e:
+        logger.error(f"❌ Authentication error: {e}", exc_info=True)
+        return None
 
 
 def get_or_create_latest_conversation(conversation_data: dict) -> Conversation:
@@ -90,7 +166,6 @@ def get_or_create_latest_conversation(conversation_data: dict) -> Conversation:
                 Conversation.select()
                 .where(Conversation.user_id == user_id)
                 .order_by(Conversation.created_on.desc())
-                # .get()
             )
 
         conversation = conversation_qs.get() if len(conversation_qs) >= 1 else None
@@ -99,7 +174,7 @@ def get_or_create_latest_conversation(conversation_data: dict) -> Conversation:
             logger.info(f"New conversation created for user_id:{user_id}")
 
     except Exception as error:
-        logger.error(error, exec_info=True)
+        logger.error(error, exc_info=True)
 
     return conversation
 
@@ -128,10 +203,7 @@ def get_user_chat_history(user_id, window=Config.CHAT_HISTORY_WINDOW):
                 chat_history
                 + f"\n\nUser : {message.translated_message}\nAI Assistant : {message.message_response}"
             )
-        # history.append((message.translated_message, message.message_response))
 
-    # print(f"\n ######## USER CHAT HISTORY BEGINS ########\n{chat_history} ######## USER CHAT HISTORY END ########\n")
-    # logger.info(f"User chat history :\n {chat_history}")
     return chat_history
 
 
@@ -173,14 +245,9 @@ def get_or_create_user_by_email(user_data: dict) -> User:
     email_id = user_data.get("email", None)
     try:
         with db_conn:
-            user_obj = (
-                User.get(User.email == email_id)
-                # .where(User.email == email_id)
-                # .get()
-            )
+            user_obj = User.get(User.email == email_id)
     except DoesNotExist:
         user_obj = create_record(User, user_data)
-
         logger.info(f"New User created for the email_id:{email_id}")
 
     return user_obj
@@ -210,8 +277,6 @@ def create_follow_up_questions(data) -> FollowUpQuestion:
     """
     Save multiple instances of Follow-up question data.
     """
-    # def insert_many_objects(data, ModelName):
-    # with database_config.db:
     inserted_objs = None
 
     with db_conn:
@@ -260,22 +325,13 @@ async def postprocess_and_translate_query_response(
                 else final_response
             )
 
-            # translated_response += (
-            #     await a_translate_to(Constants.HERE_ARE_FOLLOW_UP_QUESTIONS_TO_ASK_TEXT, output_language)
-            #     if input_language != Constants.LANGUAGE_SHORT_CODE_ENG
-            #     else Constants.HERE_ARE_FOLLOW_UP_QUESTIONS_TO_ASK_TEXT
-            # )
-
             sequence = 0
             for question in questions.split("\n")[:3]:
-                # final_response += f"{question}\n"
                 translated_question = (
                     await a_translate_to(f"{question}\n", output_language)
                     if input_language != Constants.LANGUAGE_SHORT_CODE_ENG
                     else f"{question}\n"
                 )
-
-                # translated_response += translated_question
 
                 sequence += 1
                 follow_up_question_id = uuid.uuid4()
@@ -346,8 +402,6 @@ def clean_text(text):
     text = text.replace("*", "").replace("_", "")
 
     # Remove any remaining special characters except new lines
-    # This regex keeps letters (including non-English), digits, and new lines
-    # text = re.sub(r'[^\p{L}\p{M}\p{N}\p{Z}\s\n]', '', text, flags=re.UNICODE)
     text = regex.sub(r"[^\p{L}\p{M}\p{N}\p{Z}\s\n]", "", text, flags=regex.UNICODE)
 
     return text

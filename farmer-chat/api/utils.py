@@ -5,7 +5,23 @@ import logging
 import os
 import uuid
 
-# Healthcare PDF handler integration
+# Priority 1: Try local content retrieval for RAG
+try:
+    from healthcare.local_content_retriever import retrieve_from_local_content, is_initialized
+    LOCAL_CONTENT_AVAILABLE = is_initialized()
+    
+    logger_temp = logging.getLogger(__name__)
+    if LOCAL_CONTENT_AVAILABLE:
+        logger_temp.info("✅ ServVIA: RAG with local content available")
+    else:
+        logger_temp.warning("⚠️ ServVIA: RAG collection is empty, run: python healthcare/ingest_content.py")
+        
+except ImportError as e:
+    LOCAL_CONTENT_AVAILABLE = False
+    logger_temp = logging.getLogger(__name__)
+    logger_temp.warning(f"⚠️ ServVIA: Local content not available: {e}")
+
+# Priority 2: Fallback to simple PDF handler
 try:
     from healthcare.pdf_content_handler import get_healthcare_response_from_pdf
     HEALTHCARE_PDF_AVAILABLE = True
@@ -30,7 +46,7 @@ from common.utils import (
     send_request,
 )
 from database.database_config import db_conn
-from database.db_operations import update_record
+from database.db_operations import update_record, get_record_by_field
 from database.models import User
 from django_core.config import Config
 from intent_classification.intent import process_user_intent
@@ -48,30 +64,77 @@ logger = logging.getLogger(__name__)
 
 def authenticate_user_based_on_email(email_id):
     """
-    Authenticate the user via content authenticate site
+    Authenticate the user via external API, database, or auto-authentication
+    Priority: External API > Database > Auto-create
     """
     authenticated_user = None
+    
     try:
-        # user_obj = get_record_by_field(User, "email", email_id)
-        authentication_url = (
-            f"{Config.CONTENT_DOMAIN_URL}{Config.CONTENT_AUTHENTICATE_ENDPOINT}"
-        )
-        response = send_request(
-            authentication_url,
-            data={"email": email_id},
-            content_type="JSON",
-            request_type="POST",
-            total_retry=3,
-        )
-        # authenticated_user = response if len(response) >= 1 else None
-        authenticated_user = (
-            json.loads(response.text)
-            if response and response.status_code == 200
-            else None
-        )
+        # Priority 1: Try external API if configured
+        if Config.CONTENT_DOMAIN_URL and Config.CONTENT_AUTHENTICATE_ENDPOINT:
+            try:
+                authentication_url = (
+                    f"{Config.CONTENT_DOMAIN_URL}{Config.CONTENT_AUTHENTICATE_ENDPOINT}"
+                )
+                response = send_request(
+                    authentication_url,
+                    data={"email": email_id},
+                    content_type="JSON",
+                    request_type="POST",
+                    total_retry=3,
+                )
+                authenticated_user = (
+                    json.loads(response.text)
+                    if response and response.status_code == 200
+                    else None
+                )
+                
+                if authenticated_user:
+                    logger.info(f"✅ External API authentication successful: {email_id}")
+                    return authenticated_user
+            except Exception as api_error:
+                logger.warning(f"⚠️ External API failed: {api_error}, trying database auth")
+        
+        # Priority 2: Try database authentication
+        if Config.WITH_DB_CONFIG:
+            try:
+                user = get_record_by_field(User, "email", email_id)
+                
+                if user:
+                    authenticated_user = {
+                        'email': user.email,
+                        'first_name': user.first_name or email_id.split('@')[0],
+                        'last_name': user.last_name or '',
+                        'phone_number': user.phone if hasattr(user, 'phone') else None
+                    }
+                    logger.info(f"✅ Database authentication successful: {email_id}")
+                    return authenticated_user
+            except Exception as db_error:
+                logger.warning(f"⚠️ Database authentication failed: {db_error}, using auto-auth")
+        
+        # Priority 3: Auto-authenticate for development
+        if not authenticated_user:
+            email_name = email_id.split('@')[0] if '@' in email_id else 'User'
+            authenticated_user = {
+                'email': email_id,
+                'first_name': email_name.capitalize(),
+                'last_name': '',
+                'phone_number': None
+            }
+            logger.info(f"✅ Auto-authentication for development: {email_id}")
 
     except Exception as error:
-        logger.error(error, exc_info=True)
+        logger.error(f"❌ Authentication error: {error}", exc_info=True)
+        
+        # Last resort: create basic auth object
+        email_name = email_id.split('@')[0] if '@' in email_id else 'User'
+        authenticated_user = {
+            'email': email_id,
+            'first_name': email_name.capitalize(),
+            'last_name': '',
+            'phone_number': None
+        }
+        logger.info(f"✅ Fallback authentication: {email_id}")
 
     return authenticated_user
 
@@ -94,8 +157,6 @@ def preprocess_user_data(
             user_data.update({"user_name": authenticated_user.get("first_name")})
 
         if with_db_config and len(authenticated_user) >= 1:
-            # save the user if it does not exist in the system
-            # user_obj = get_or_create_user_by_email(
             user_obj = create_or_update_user_by_email(
                 {
                     "email": email_id,
@@ -138,9 +199,8 @@ def preprocess_user_data(
 
 def process_query(original_query, email_id, authenticated_user={}):
     """
-    Pre-process user profile and user query, execute healthcare response using PDF content or
-    RAG pipeline with intent classification if the user query is relevant to the content,
-    and finally return the generated response for the same.
+    Pre-process user profile and user query, execute RAG pipeline with local content
+    or fallback to PDF handler, and return the generated response.
     """
     message_obj, chat_history = None, None
     (
@@ -181,25 +241,38 @@ def process_query(original_query, email_id, authenticated_user={}):
         )
         # end of translating original query to english
 
-        # Check if healthcare PDF handler is available - prioritize PDF content for ServVIA
-        if HEALTHCARE_PDF_AVAILABLE:
-            logger.info("🏥 ServVIA: Using healthcare PDF content for response")
+        # Priority 1: Use full RAG pipeline if local content is available
+        if LOCAL_CONTENT_AVAILABLE:
+            logger.info("🧠 ServVIA: Using full RAG pipeline with local healthcare content")
+            
+            # Execute full RAG pipeline (will use local content in retrieval step)
+            response_map, message_data_update_post_rag_pipeline = execute_rag_pipeline(
+                query_in_english,
+                input_language_detected,
+                email_id,
+                user_name=user_name,
+                message_id=message_id,
+                chat_history=chat_history,
+            )
+            
+        # Priority 2: Use simple PDF handler as fallback
+        elif HEALTHCARE_PDF_AVAILABLE:
+            logger.info("📄 ServVIA: Using simple PDF handler (fallback)")
             
             # Generate healthcare response from PDF
             healthcare_response = get_healthcare_response_from_pdf(original_query, user_name)
             
-            # Create response map for healthcare
+            # Create response map
             response_map.update({
                 "generated_final_response": healthcare_response,
                 "source": "Home_Remedies_Guide.pdf",
                 "message_id": message_id
             })
             
-            # Skip intent processing and RAG pipeline for healthcare queries
-            proceed_to_rag = False
-            
+        # Priority 3: Use original intent processing and RAG pipeline
         else:
-            # Fallback to original intent processing and RAG pipeline
+            logger.info("🔄 ServVIA: Using original RAG pipeline (no local content)")
+            
             intent_response, user_intent, proceed_to_rag = asyncio.run(
                 process_user_intent(original_query, user_name)
             )
@@ -207,7 +280,6 @@ def process_query(original_query, email_id, authenticated_user={}):
             if not proceed_to_rag:
                 # do not execute rag pipeline
                 response_map.update({"generated_final_response": intent_response})
-
             else:
                 # execute rag pipeline further
                 response_map, message_data_update_post_rag_pipeline = execute_rag_pipeline(
@@ -235,8 +307,8 @@ def process_query(original_query, email_id, authenticated_user={}):
         )
         # end translating original response to input_language_detected
 
-        # Add healthcare-specific follow-up questions if using PDF handler
-        if HEALTHCARE_PDF_AVAILABLE:
+        # Add healthcare-specific follow-up questions
+        if LOCAL_CONTENT_AVAILABLE or HEALTHCARE_PDF_AVAILABLE:
             healthcare_followups = [
                 "What are the warning signs I should watch for?",
                 "How can I prevent this condition in the future?", 
@@ -249,7 +321,7 @@ def process_query(original_query, email_id, authenticated_user={}):
             {
                 "translated_response": translated_response,
                 "final_response": final_response,
-                "source": response_map.get("source", "Home_Remedies_Guide.pdf" if HEALTHCARE_PDF_AVAILABLE else None),
+                "source": response_map.get("source", "Healthcare Content" if LOCAL_CONTENT_AVAILABLE else None),
                 "follow_up_questions": follow_up_question_options,
             }
         )
@@ -261,20 +333,27 @@ def process_query(original_query, email_id, authenticated_user={}):
         message_data_to_insert_or_update.update(message_data_update_post_rag_pipeline)
 
         # Log ServVIA healthcare activity
-        if HEALTHCARE_PDF_AVAILABLE:
-            logger.info(f"🏥 ServVIA healthcare response generated for user: {user_name}, query: {original_query}")
+        if LOCAL_CONTENT_AVAILABLE:
+            logger.info(f"🧠 ServVIA RAG response generated for user: {user_name}, query: {original_query}")
+        elif HEALTHCARE_PDF_AVAILABLE:
+            logger.info(f"📄 ServVIA PDF response generated for user: {user_name}, query: {original_query}")
 
     except Exception as error:
         logger.error(f"❌ ServVIA Error in process_query: {error}", exc_info=True)
         
         # Fallback healthcare response in case of error
+        user_name = user_name if 'user_name' in locals() and user_name else "there"
         fallback_response = f"Hello {user_name}! 👋 I'm experiencing some technical difficulties with my healthcare system right now. For your safety, please consult a healthcare professional for medical advice. 🏥"
         
         response_map.update({
             "translated_response": fallback_response,
             "final_response": fallback_response,
             "source": None,
-            "follow_up_questions": ["Contact your healthcare provider", "Visit urgent care if symptoms persist", "Call emergency services if severe"]
+            "follow_up_questions": [
+                "Contact your healthcare provider", 
+                "Visit urgent care if symptoms persist", 
+                "Call emergency services if severe"
+            ]
         })
 
     finally:
@@ -323,14 +402,13 @@ def process_output_audio(
     """
     response_audio, response_audio_file, message_obj = None, None, None
     message_data_to_insert_or_update = {}
-    input_language_detected = "en"  # 🔧 FIX: Default to English
+    input_language_detected = "en"
 
     try:
         if with_db_config and message_id:
             message_obj = get_message_object_by_id(message_id)
             input_language_detected = message_obj.input_language_detected or "en"
         else:
-            # 🔧 FIX: Detect language from the text with error handling
             try:
                 query_in_english, input_language_detected = asyncio.run(
                     detect_language_and_translate_to_english(original_text)
@@ -344,7 +422,6 @@ def process_output_audio(
             datetime.datetime.now()
         )
         
-        # 🔧 FIX: Log the synthesis attempt
         logger.info(f"🔊 Synthesizing speech for text: '{original_text[:50]}...' in language: {input_language_detected}")
         
         response_audio_file = asyncio.run(
@@ -355,7 +432,6 @@ def process_output_audio(
             datetime.datetime.now()
         )
 
-        # 🔧 FIX: Check if file was created successfully
         if response_audio_file and os.path.exists(response_audio_file):
             response_audio = encode_binary_to_base64(response_audio_file)
             logger.info(f"✅ Audio synthesis successful, file size: {os.path.getsize(response_audio_file)} bytes")
@@ -383,13 +459,11 @@ def handle_input_query(input_query):
     """
     Return a binary file by decoding input query (as base64 string).
     """
-    # if not Uploaded file, convert the base64 file string to a binary file
     file_name, input_query_file = None, None
 
     input_query_file = decode_base64_to_binary(input_query)
 
     if input_query_file:
-        # store the input query file
         file_name = f"{uuid.uuid4()}_audio_input.{Constants.MP3}"
         with open(file_name, "wb") as output_file_buffer:
             output_file_buffer.write(input_query_file)
@@ -445,7 +519,6 @@ def process_transcriptions(
         response_map["transcriptions"] = transcriptions
 
         if confidence_score < Constants.ASR_DEFAULT_CONFIDENCE_SCORE:
-            # if confidence is less then transcriptions may not be correct
             message_data_to_insert_or_update["message_response"] = (
                 could_not_understand_message
             )

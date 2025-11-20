@@ -1,5 +1,4 @@
 import os
-
 from dotenv import dotenv_values, load_dotenv
 
 # load_dotenv()
@@ -33,6 +32,18 @@ class Config:
     DB_PORT = ENV_CONFIG.get("DB_PORT")
     MAX_CONNECTIONS = ENV_CONFIG.get("DB_MAX_CONNECTIONS")
     STALE_TIMEOUT = ENV_CONFIG.get("DB_STALE_TIMEOUT")
+
+    # Medical Profiling config
+    ENABLE_MEDICAL_PROFILING = handle_boolean(ENV_CONFIG.get("ENABLE_MEDICAL_PROFILING", False))
+    MEDICAL_DATA_ENCRYPTION_KEY = ENV_CONFIG.get("MEDICAL_DATA_ENCRYPTION_KEY")
+    
+    # Medical profiling audit settings
+    MEDICAL_AUDIT_LOG_RETENTION_DAYS = int(ENV_CONFIG.get("MEDICAL_AUDIT_LOG_RETENTION_DAYS", 365))
+    MEDICAL_PROFILE_MAX_VERSION = int(ENV_CONFIG.get("MEDICAL_PROFILE_MAX_VERSION", 100))
+    
+    # Medical data encryption settings
+    MEDICAL_ENCRYPTION_ALGORITHM = ENV_CONFIG.get("MEDICAL_ENCRYPTION_ALGORITHM", "Fernet")
+    MEDICAL_KEY_ROTATION_ENABLED = handle_boolean(ENV_CONFIG.get("MEDICAL_KEY_ROTATION_ENABLED", False))
 
     # prompts
     REPHRASE_QUESTION_PROMPT = ENV_CONFIG.get("REPHRASE_QUESTION_PROMPT")
@@ -68,3 +79,27 @@ class Config:
 
     # Translation
     GOOGLE_APPLICATION_CREDENTIALS = ENV_CONFIG.get("GOOGLE_APPLICATION_CREDENTIALS")
+    
+    @classmethod
+    def validate_medical_config(cls):
+        """Validate medical profiling configuration"""
+        if cls.ENABLE_MEDICAL_PROFILING:
+            if not cls.MEDICAL_DATA_ENCRYPTION_KEY:
+                raise ValueError(
+                    "MEDICAL_DATA_ENCRYPTION_KEY must be set when ENABLE_MEDICAL_PROFILING is True. "
+                    "Generate one with: python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'"
+                )
+            
+            # Validate key format
+            try:
+                from cryptography.fernet import Fernet
+                Fernet(cls.MEDICAL_DATA_ENCRYPTION_KEY.encode())
+            except Exception as e:
+                raise ValueError(f"Invalid MEDICAL_DATA_ENCRYPTION_KEY format: {e}")
+        
+        return True
+    
+    @classmethod
+    def is_medical_profiling_enabled(cls):
+        """Check if medical profiling is enabled"""
+        return cls.ENABLE_MEDICAL_PROFILING and cls.MEDICAL_DATA_ENCRYPTION_KEY is not None

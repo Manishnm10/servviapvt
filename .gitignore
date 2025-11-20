@@ -1,3 +1,13 @@
 .env
 google-translate-key.json
 farmer-chat/credentials/google-translate-key.json
+_archived_local_pdf_processing/ 
+*.txt 
+"New Text Document.txt" 
+"tash list" 
+*.h5 
+medical_ai/models/ 
+medical_ai/logs/ 
+medical_ai/evaluation_results/ 
+*.png 
+*.csv 
